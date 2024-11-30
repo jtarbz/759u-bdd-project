@@ -131,6 +131,13 @@ int main (int argc, char **argv)
 	/* END REPURPOSED BLIF2BDD CODE */
 
 	/* TODO: OUR RE-ORDERING LOGIC WILL HAPPEN HERE*/
+	for () {
+		/* we should take # of iterations as a command line parameter */
+		/* 
+		 * may want to focus on the use of cuddSwapInPlace(), which takes
+		 * a DdManager * and two indices as input 
+		 */
+	}
 
 	Bnet_FreeNetwork (net);
 	Cudd_Quit (manager);
@@ -138,11 +145,6 @@ int main (int argc, char **argv)
 
 	return 0;
 }
-
-
-/*---------------------------------------------------------------------------*/
-/* Definition of internal functions */
-/*---------------------------------------------------------------------------*/
 
 /*---------------------------------------------------------------------------*/
 /* Definition of static functions */
