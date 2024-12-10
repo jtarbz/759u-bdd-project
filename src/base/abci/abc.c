@@ -634,7 +634,7 @@ extern int Abc_CommandNChooseK               ( Abc_Frame_t * pAbc, int argc, cha
 
 /* 759 CODE BEGIN */
 
-extern int Abc_CommandReorder759(Abc_Frame_t *pAbc, int argc, char ** argv);
+extern int Abc_CommandReorder759(Abc_Frame_t *pAbc, int argc, char **argv);
 
 /* 759 CODE END */
 
@@ -3339,7 +3339,7 @@ usage:
 int Abc_CommandShowBdd( Abc_Frame_t * pAbc, int argc, char ** argv )
 {
     Abc_Ntk_t * pNtk = Abc_FrameReadNtk(pAbc); Abc_Obj_t * pNode;
-    int c, fCompl = 0, fGlobal = 0, fReorder = 1, fWidth = 0;
+    int c, fCompl = 0, fGlobal = 0, fReorder = 0, fWidth = 0;       // 759: fReorder default to 0
     extern void Abc_NodeShowBdd( Abc_Obj_t * pNode, int fCompl );
     extern void Abc_NtkShowBdd( Abc_Ntk_t * pNtk, int fCompl, int fReorder );
     extern void Abc_NtkBddDecExplore( Abc_Obj_t * pNode );

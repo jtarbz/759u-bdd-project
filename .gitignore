@@ -26,7 +26,7 @@ src/aig/ddb/
 *.orig
 
 *.[od]
-
+*.ps
 *.ncb
 *.opt
 *.plg
