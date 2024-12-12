@@ -91,7 +91,7 @@ int Abc_CommandReorder759(Abc_Frame_t *pAbc, int argc, char **argv) {
 }
 
 //rank based on the lengths of cubes
-void rankVarDSCF(DdManager *dd, DdNode *bdd, int numOutputs, int *variableRank, int numVars){
+void rankVarDSCF(DdManager *dd, DdNode **bdd, int numOutputs, int *variableRank, int numVars){
     DdGen *gen;
     int *cube;
     CUDD_VALUE_TYPE value;
@@ -126,14 +126,14 @@ void rankVarDSCF(DdManager *dd, DdNode *bdd, int numOutputs, int *variableRank, 
         gen = Cudd_NextCube(gen, &cube, &value);
     } */
     for (o = 0; o < numOutputs; o++){
-        if(&bdd[o] == NULL){
+        if(bdd[o] == NULL){
             printf("null output\n");
             continue;
         }
 
         printf("before cuddforeach\n");
     //going through lal the cubes (not sure if these are correct parameters)
-     Cudd_ForeachCube(dd, &bdd[o], gen, cube, value) {
+     Cudd_ForeachCube(dd, bdd[o], gen, cube, value) {
         cubeLength = 0;
         printf("inside foreach\n");
         for (i = 0; i < numVars; i++) {
