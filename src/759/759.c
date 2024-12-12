@@ -8,7 +8,7 @@ int Abc_CommandReorder759(Abc_Frame_t *pAbc, int argc, char **argv) {
     Abc_Ntk_t *pNtk = Abc_FrameReadNtk(pAbc);
     DdManager *dd;
     DdNode **outputs;
-    int i, num_inputs, num_outputs, *perm;
+    int i, num_inputs, num_outputs, original_size, *perm;
 
     if (pNtk == NULL) {
         printf("NULL network. Please read an input.\n");
@@ -34,7 +34,7 @@ int Abc_CommandReorder759(Abc_Frame_t *pAbc, int argc, char **argv) {
     Abc_Ntk_t * pTemp = Abc_NtkIsStrash(pNtk) ? pNtk : Abc_NtkStrash(pNtk, 0, 0, 0);
     dd = (DdManager *)Abc_NtkBuildGlobalBdds(pTemp, 10000000, 1, 0, 0, 0);
 
-    if(dd == NULL){
+    if(dd == NULL ){
         printf("Error to build global BDDs\n");
         if (pTemp != pNtk) {
             Abc_NtkDelete(pTemp);
@@ -65,7 +65,9 @@ int Abc_CommandReorder759(Abc_Frame_t *pAbc, int argc, char **argv) {
         outputs[i] = Cudd_bddIthVar(dd, i); 
         //gives the variable an index basically, so that it's all within the output array
     }
-
+    original_size = Cudd_ReadNodeCount(dd);
+    printf("Original BDD size: %d\n", original_size);
+    printf("before dscf\n");
     rankVarDSCF(dd, outputs, num_outputs, varRank, num_inputs);
     DSCFPermutation(varRank, perm, num_inputs);
 
@@ -74,7 +76,7 @@ int Abc_CommandReorder759(Abc_Frame_t *pAbc, int argc, char **argv) {
     Cudd_ShuffleHeap(dd, perm);
 
     printf("DEBUG: Counted %d active nodes in the BDD\n", Cudd_ReadKeys(dd) - Cudd_ReadDead(dd));
-
+    printf("BDD size after dscf: %d\n", Cudd_ReadNodeCount(dd));
     //Abc_NtkShowBdd(pTemp, 0, 0);
 
     if (pTemp != pNtk) {
@@ -93,23 +95,57 @@ void rankVarDSCF(DdManager *dd, DdNode *bdd, int numOutputs, int *variableRank, 
     DdGen *gen;
     int *cube;
     CUDD_VALUE_TYPE value;
-    int i;
+    int i, cubeLength, o;
 
     // initialize ranks
     for (i = 0; i < numVars; i++) {
         variableRank[i] = 0;
     }
 
+    printf("before cuddfirst\n");
+    // Iterate through all the cubes 
+    /*   attempt at using cudd first cube and changed the foreachcube parameter to see if it works
+    gen = Cudd_FirstCube(dd, bdd, &cube, &value); 
+    printf("after cuddfirst\n");
+
+    while (gen) { 
+        int cubeLength = 0; 
+        for (i = 0; i < numVars; i++) { 
+            // Variable appears in cube: == 0 -> negated, == 1 -> literal, == 2 -> dc 
+            if (cube[i] != 2) { 
+                cubeLength++; // num of variables in cube 
+                variableRank[i]++; 
+            } 
+        } // Rank by cube length 
+        for (i = 0; i < numVars; i++) { 
+            if (cube[i] != 2) { 
+                variableRank[i] += (numVars - cubeLength); 
+                // Shorter cubes get more weight 
+            } 
+        } 
+        gen = Cudd_NextCube(gen, &cube, &value);
+    } */
+    for (o = 0; o < numOutputs; o++){
+        if(&bdd[o] == NULL){
+            printf("null output\n");
+            continue;
+        }
+
+        printf("before cuddforeach\n");
     //going through lal the cubes (not sure if these are correct parameters)
-    Cudd_ForeachCube(dd, bdd, gen, cube, value) {
-        int cubeLength = 0;
+     Cudd_ForeachCube(dd, &bdd[o], gen, cube, value) {
+        cubeLength = 0;
+        printf("inside foreach\n");
         for (i = 0; i < numVars; i++) {
             // Variable appears in cube, == 0 -> negated, == 1 -> literal, == 2 -> dc
             if (cube[i] != 2) { 
                 cubeLength++; //num of variables in cube
                 variableRank[i]++;
+                printf("Cube[%d] = %d\n", i, cube[i]);
             }
         }
+
+        printf("At iteration [%d] the size is %d\n.", i, cubeLength);
         // rank by cube length
         for (i = 0; i < numVars; i++) {
             if (cube[i] != 2) {
@@ -118,6 +154,12 @@ void rankVarDSCF(DdManager *dd, DdNode *bdd, int numOutputs, int *variableRank, 
             }
         }
     }
+    printf("finished foreachcube\n"); 
+
+
+    }
+ 
+
 }
 
 void DSCFPermutation(int *variableRank, int *perm, int numVars) {
