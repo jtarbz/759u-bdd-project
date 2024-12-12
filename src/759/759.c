@@ -70,8 +70,8 @@ int Abc_CommandReorder759(Abc_Frame_t *pAbc, int argc, char **argv) {
     original_size = Cudd_ReadNodeCount(dd);
     printf("Original BDD size: %d\n", original_size);
     printf("before dscf\n");
-    rankVarDSCF(dd, outputs, num_outputs, variableRank, num_inputs);
-    DSCFPermutation(variableRank, perm, num_inputs);
+    rankVarDSCF(dd, outputs, num_outputs, num_inputs);
+    DSCFPermutation(perm, num_inputs);
 
 
 
@@ -93,7 +93,7 @@ int Abc_CommandReorder759(Abc_Frame_t *pAbc, int argc, char **argv) {
 }
 
 //rank based on the lengths of cubes
-void rankVarDSCF(DdManager *dd, DdNode **bdd, int numOutputs, int *variableRank, int numVars){
+void rankVarDSCF(DdManager *dd, DdNode **bdd, int numOutputs, int numVars){
     DdGen *gen;
     int *cube;
     CUDD_VALUE_TYPE value;
@@ -170,7 +170,7 @@ int compareRanks(const void *a, const void *b) {
     return variableRank[id2] - variableRank[id]; 
 }
 
-void DSCFPermutation(int *variableRank, int *perm, int numVars) {
+void DSCFPermutation(int *perm, int numVars) {
     int i;
    
     for (i = 0; i < numVars; ++i) {
