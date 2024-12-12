@@ -4,6 +4,8 @@
 #include "base/main/main.h"
 #include "bdd/cudd/cudd.h"
 
+int *variableRank;
+
 int Abc_CommandReorder759(Abc_Frame_t *pAbc, int argc, char **argv) {
     Abc_Ntk_t *pNtk = Abc_FrameReadNtk(pAbc);
     DdManager *dd;
@@ -29,7 +31,7 @@ int Abc_CommandReorder759(Abc_Frame_t *pAbc, int argc, char **argv) {
     //     }
     // }
 
-    printf("DEBUG: Computing global BDD for network\n");
+    printf("DEBUG: ComvariableRankputing global BDD for network\n");
 
     Abc_Ntk_t * pTemp = Abc_NtkIsStrash(pNtk) ? pNtk : Abc_NtkStrash(pNtk, 0, 0, 0);
     dd = (DdManager *)Abc_NtkBuildGlobalBdds(pTemp, 10000000, 1, 0, 0, 0);
@@ -54,7 +56,7 @@ int Abc_CommandReorder759(Abc_Frame_t *pAbc, int argc, char **argv) {
     printf("DEBUG: Found %d primary outputs\n", num_outputs);
 
 
-    int *varRank = ABC_ALLOC(int, num_inputs);
+    variableRank = ABC_ALLOC(int, num_inputs);
 
     perm = ABC_ALLOC(int, num_inputs);
     outputs = ABC_ALLOC(DdNode *, num_outputs);
@@ -68,8 +70,8 @@ int Abc_CommandReorder759(Abc_Frame_t *pAbc, int argc, char **argv) {
     original_size = Cudd_ReadNodeCount(dd);
     printf("Original BDD size: %d\n", original_size);
     printf("before dscf\n");
-    rankVarDSCF(dd, outputs, num_outputs, varRank, num_inputs);
-    DSCFPermutation(varRank, perm, num_inputs);
+    rankVarDSCF(dd, outputs, num_outputs, variableRank, num_inputs);
+    DSCFPermutation(variableRank, perm, num_inputs);
 
 
 
@@ -84,7 +86,7 @@ int Abc_CommandReorder759(Abc_Frame_t *pAbc, int argc, char **argv) {
     }
 
     ABC_FREE(perm);
-    ABC_FREE(varRank);
+    ABC_FREE(variableRank);
     ABC_FREE(outputs);
 
     return 0;
@@ -165,7 +167,7 @@ void rankVarDSCF(DdManager *dd, DdNode **bdd, int numOutputs, int *variableRank,
 int compareRanks(const void *a, const void *b) {
     int id = *(int *)a;
     int id2 = *(int *)b;
-    return id2 - id; 
+    return variableRank[id2] - variableRank[id]; 
 }
 
 void DSCFPermutation(int *variableRank, int *perm, int numVars) {
