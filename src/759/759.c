@@ -162,20 +162,19 @@ void rankVarDSCF(DdManager *dd, DdNode **bdd, int numOutputs, int *variableRank,
 
 }
 
+int compareRanks(const void *a, const void *b) {
+    int id = *(int *)a;
+    int id2 = *(int *)b;
+    return id2 - id; 
+}
+
 void DSCFPermutation(int *variableRank, int *perm, int numVars) {
-    int id, id2, i;
-    const void *a, *b;
+    int i;
    
     for (i = 0; i < numVars; ++i) {
         perm[i] = i;
     }
 
     // Sort variables by rank (descending)
-    qsort(perm, numVars, sizeof(int), compareRanks(variableRank, a, b));
-}
-
-int compareRanks(int *variableRank, const void *a, const void *b) {
-    int id = *(int *)a;
-    int id2 = *(int *)b;
-    return variableRank[id2] - variableRank[id]; 
+    qsort(perm, numVars, sizeof(int), compareRanks);
 }
