@@ -79,7 +79,7 @@ int Abc_CommandReorder759(Abc_Frame_t *pAbc, int argc, char **argv) {
     //     //gives the variable an index basically, so that it's all within the output array
     // }
 
-    Abc_NtkForEachCo(pTemp, pObj, i) {
+    Abc_NtkForEachCo (pTemp, pObj, i) {
         Vec_PtrPush(globalFuncs, Abc_ObjGlobalBdd(pObj));
     }
 
@@ -91,6 +91,18 @@ int Abc_CommandReorder759(Abc_Frame_t *pAbc, int argc, char **argv) {
     rankVarDSCF(dd, outputs, num_outputs, num_inputs);
     DSCFPermutation(perm, num_inputs);
 
+    printf("Permutation: ");
+    for (int i = 0; i < num_inputs; ++i) {
+        printf("%d ", perm[i]);
+    }
+    printf("\n");
+
+    printf("Variable ranks: ");
+    for (int i = 0; i < num_inputs; ++i) {
+        printf("%d ", variableRank[i]);
+    }
+    printf("\n");
+
     Cudd_ShuffleHeap(dd, perm);
 
     printf("DEBUG: Counted %d active nodes in the BDD (includes outputs and constants)\n", Cudd_ReadKeys(dd) - Cudd_ReadDead(dd));
@@ -101,7 +113,7 @@ int Abc_CommandReorder759(Abc_Frame_t *pAbc, int argc, char **argv) {
     ABC_FREE(variableRank);
     Abc_NtkFreeGlobalBdds(pTemp, 0);
 
-    Vec_PtrForEachEntry(DdNode *, globalFuncs, bFunc, i) {
+    Vec_PtrForEachEntry (DdNode *, globalFuncs, bFunc, i) {
         Cudd_RecursiveDeref(dd, bFunc);
     }
 
@@ -129,39 +141,39 @@ void rankVarDSCF(DdManager *dd, DdNode **bdd, int numOutputs, int numVars) {
     printf("before cuddfirst\n");
     // Iterate through all the cubes 
     
-    for (o = 0; o < numOutputs; o++){
-        if(bdd[o] == NULL){
+    for (o = 0; o < numOutputs; o++) {
+        if (bdd[o] == NULL){
             printf("null output\n");
             continue;
         }
 
         printf("before cuddforeach\n");
-    //going through lal the cubes (not sure if these are correct parameters)
-     Cudd_ForeachCube(dd, bdd[o], gen, cube, value) {
-        cubeLength = 0;
-        // printf("inside foreach\n");
-        for (i = 0; i < numVars; i++) {
-              //  printf("Cube[%d] = %d\n", i, cube[i]);
 
-            // Variable appears in cube, == 0 -> negated, == 1 -> literal, == 2 -> dc
-            if (cube[i] != 2) { 
-                cubeLength++; //num of variables in cube
-                variableRank[i]++;
+        //going through lal the cubes (not sure if these are correct parameters)
+        Cudd_ForeachCube (dd, bdd[o], gen, cube, value) {
+            cubeLength = 0;
+            // printf("inside foreach\n");
+            for (i = 0; i < numVars; i++) {
+                //  printf("Cube[%d] = %d\n", i, cube[i]);
+
+                // Variable appears in cube, == 0 -> negated, == 1 -> literal, == 2 -> dc
+                if (cube[i] != 2) { 
+                    cubeLength++; //num of variables in cube
+                    variableRank[i]++;
+                }
+            }
+
+            printf("At iteration [%d] the size is %d\n.", i, cubeLength);
+            // rank by cube length
+            for (i = 0; i < numVars; i++) {
+                if (cube[i] != 2) {
+                    variableRank[i] += (numVars - cubeLength); 
+                    // shorter cubes get more weight
+                }
             }
         }
 
-        printf("At iteration [%d] the size is %d\n.", i, cubeLength);
-        // rank by cube length
-        for (i = 0; i < numVars; i++) {
-            if (cube[i] != 2) {
-                variableRank[i] += (numVars - cubeLength); 
-                // shorter cubes get more weight
-            }
-        }
-    }
-    printf("finished foreachcube\n"); 
-
-
+        printf("finished foreachcube\n"); 
     }
  
 
