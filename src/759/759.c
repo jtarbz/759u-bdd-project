@@ -6,10 +6,16 @@
 
 int *variableRank;
 
+static void rankVarDSCF(DdManager *dd, DdNode **bdd, int numOutputs, int numVars);
+static void DSCFPermutation(int *perm, int numVars);
+
 int Abc_CommandReorder759(Abc_Frame_t *pAbc, int argc, char **argv) {
     Abc_Ntk_t *pNtk = Abc_FrameReadNtk(pAbc);
     DdManager *dd;
+    Vec_Ptr_t *globalFuncs;
+    DdNode *bFunc;
     DdNode **outputs;
+    Abc_Obj_t *pObj;
     int i, num_inputs, num_outputs, original_size, *perm;
 
     if (pNtk == NULL) {
@@ -31,7 +37,7 @@ int Abc_CommandReorder759(Abc_Frame_t *pAbc, int argc, char **argv) {
     //     }
     // }
 
-    printf("DEBUG: ComvariableRankputing global BDD for network\n");
+    printf("DEBUG: Computing global BDD for network\n");
 
     Abc_Ntk_t * pTemp = Abc_NtkIsStrash(pNtk) ? pNtk : Abc_NtkStrash(pNtk, 0, 0, 0);
     dd = (DdManager *)Abc_NtkBuildGlobalBdds(pTemp, 10000000, 1, 0, 0, 0);
@@ -49,54 +55,67 @@ int Abc_CommandReorder759(Abc_Frame_t *pAbc, int argc, char **argv) {
     // --> FIXME: currently just playing with this for small inputs
     // --> THIS IS NOT FINAL OR CURRENT LOGIC
     // --> tbh im just trying to get something to work idk what im doing
-    num_inputs = Abc_NtkPiNum(pNtk);
+    num_inputs = Abc_NtkPiNum(pTemp);
     printf("DEBUG: Found %d primary inputs\n", num_inputs);
 
-    num_outputs = Abc_NtkPoNum(pNtk);
+    num_outputs = Abc_NtkPoNum(pTemp);
     printf("DEBUG: Found %d primary outputs\n", num_outputs);
 
 
     variableRank = ABC_ALLOC(int, num_inputs);
 
     perm = ABC_ALLOC(int, num_inputs);
-    outputs = ABC_ALLOC(DdNode *, num_outputs);
+    globalFuncs = Vec_PtrAlloc(Abc_NtkCoNum(pTemp));
+
+    printf("Number of combinational outputs: %d\n", Abc_NtkCoNum(pTemp));
 
 
-    // this **SHOULD** fix the variable ordering to the same ordering as in the BLIF file
-    for (i = 0; i < num_outputs; i++) {
-        outputs[i] = Cudd_bddIthVar(dd, i); 
-        //printf("outputs[%d] = %p\n", i, (void *)outputs[i]);
-        //need to add logic of each node through th Cudd_bdd(Gates)?
+    // // this **SHOULD** fix the variable ordering to the same ordering as in the BLIF file
+    // for (i = 0; i < num_outputs; i++) {
+    //     outputs[i] = Cudd_bddIthVar(dd, i); 
+    //     //printf("outputs[%d] = %p\n", i, (void *)outputs[i]);
+    //     //need to add logic of each node through th Cudd_bdd(Gates)?
         
-        //gives the variable an index basically, so that it's all within the output array
+    //     //gives the variable an index basically, so that it's all within the output array
+    // }
+
+    Abc_NtkForEachCo(pTemp, pObj, i) {
+        Vec_PtrPush(globalFuncs, Abc_ObjGlobalBdd(pObj));
     }
+
+    outputs = (DdNode **)Vec_PtrArray(globalFuncs);
+
     original_size = Cudd_ReadNodeCount(dd);
     printf("Original BDD size: %d\n", original_size);
     printf("before dscf\n");
     rankVarDSCF(dd, outputs, num_outputs, num_inputs);
     DSCFPermutation(perm, num_inputs);
 
-
-
     Cudd_ShuffleHeap(dd, perm);
 
-    printf("DEBUG: Counted %d active nodes in the BDD\n", Cudd_ReadKeys(dd) - Cudd_ReadDead(dd));
-    printf("BDD size after dscf: %d\n", Cudd_ReadNodeCount(dd));
+    printf("DEBUG: Counted %d active nodes in the BDD (includes outputs and constants)\n", Cudd_ReadKeys(dd) - Cudd_ReadDead(dd));
+    printf("BDD size after dscf: %ld\n", Cudd_ReadNodeCount(dd));
     //Abc_NtkShowBdd(pTemp, 0, 0);
+
+    ABC_FREE(perm);
+    ABC_FREE(variableRank);
+    Abc_NtkFreeGlobalBdds(pTemp, 0);
+
+    Vec_PtrForEachEntry(DdNode *, globalFuncs, bFunc, i) {
+        Cudd_RecursiveDeref(dd, bFunc);
+    }
+
+    Vec_PtrFree(globalFuncs);    
 
     if (pTemp != pNtk) {
         Abc_NtkDelete(pTemp);
     }
 
-    ABC_FREE(perm);
-    ABC_FREE(variableRank);
-    ABC_FREE(outputs);
-
     return 0;
 }
 
 //rank based on the lengths of cubes
-void rankVarDSCF(DdManager *dd, DdNode **bdd, int numOutputs, int numVars){
+void rankVarDSCF(DdManager *dd, DdNode **bdd, int numOutputs, int numVars) {
     DdGen *gen;
     int *cube;
     CUDD_VALUE_TYPE value;
@@ -120,7 +139,7 @@ void rankVarDSCF(DdManager *dd, DdNode **bdd, int numOutputs, int numVars){
     //going through lal the cubes (not sure if these are correct parameters)
      Cudd_ForeachCube(dd, bdd[o], gen, cube, value) {
         cubeLength = 0;
-        printf("inside foreach\n");
+        // printf("inside foreach\n");
         for (i = 0; i < numVars; i++) {
               //  printf("Cube[%d] = %d\n", i, cube[i]);
 
