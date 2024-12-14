@@ -65,6 +65,9 @@ int Abc_CommandReorder759(Abc_Frame_t *pAbc, int argc, char **argv) {
     // this **SHOULD** fix the variable ordering to the same ordering as in the BLIF file
     for (i = 0; i < num_outputs; i++) {
         outputs[i] = Cudd_bddIthVar(dd, i); 
+        //printf("outputs[%d] = %p\n", i, (void *)outputs[i]);
+        //need to add logic of each node through th Cudd_bdd(Gates)?
+        
         //gives the variable an index basically, so that it's all within the output array
     }
     original_size = Cudd_ReadNodeCount(dd);
@@ -106,27 +109,7 @@ void rankVarDSCF(DdManager *dd, DdNode **bdd, int numOutputs, int numVars){
 
     printf("before cuddfirst\n");
     // Iterate through all the cubes 
-    /*   attempt at using cudd first cube and changed the foreachcube parameter to see if it works
-    gen = Cudd_FirstCube(dd, bdd, &cube, &value); 
-    printf("after cuddfirst\n");
-
-    while (gen) { 
-        int cubeLength = 0; 
-        for (i = 0; i < numVars; i++) { 
-            // Variable appears in cube: == 0 -> negated, == 1 -> literal, == 2 -> dc 
-            if (cube[i] != 2) { 
-                cubeLength++; // num of variables in cube 
-                variableRank[i]++; 
-            } 
-        } // Rank by cube length 
-        for (i = 0; i < numVars; i++) { 
-            if (cube[i] != 2) { 
-                variableRank[i] += (numVars - cubeLength); 
-                // Shorter cubes get more weight 
-            } 
-        } 
-        gen = Cudd_NextCube(gen, &cube, &value);
-    } */
+    
     for (o = 0; o < numOutputs; o++){
         if(bdd[o] == NULL){
             printf("null output\n");
@@ -139,11 +122,12 @@ void rankVarDSCF(DdManager *dd, DdNode **bdd, int numOutputs, int numVars){
         cubeLength = 0;
         printf("inside foreach\n");
         for (i = 0; i < numVars; i++) {
+              //  printf("Cube[%d] = %d\n", i, cube[i]);
+
             // Variable appears in cube, == 0 -> negated, == 1 -> literal, == 2 -> dc
             if (cube[i] != 2) { 
                 cubeLength++; //num of variables in cube
                 variableRank[i]++;
-                printf("Cube[%d] = %d\n", i, cube[i]);
             }
         }
 
