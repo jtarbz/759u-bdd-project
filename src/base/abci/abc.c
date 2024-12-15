@@ -635,6 +635,9 @@ extern int Abc_CommandNChooseK               ( Abc_Frame_t * pAbc, int argc, cha
 /* 759 CODE BEGIN */
 
 extern int Abc_CommandReorder759(Abc_Frame_t *pAbc, int argc, char **argv);
+extern int Abc_CommandReorder759_Start(Abc_Frame_t *pAbc, int argc, char **argv);
+extern int Abc_CommandReorder759_Stop(Abc_Frame_t *pAbc, int argc, char **argv);
+extern int Abc_CommandReorder759_Compare(Abc_Frame_t *pAbc, int argc, char **argv);
 
 /* 759 CODE END */
 
@@ -1439,6 +1442,9 @@ void Abc_Init( Abc_Frame_t * pAbc )
     /* 759 CODE BEGIN */
 
     Cmd_CommandAdd(pAbc, "Various", "reorder759", Abc_CommandReorder759, 0);
+    Cmd_CommandAdd(pAbc, "Various", "reorder759_start", Abc_CommandReorder759_Start, 0);
+    Cmd_CommandAdd(pAbc, "Various", "reorder759_stop", Abc_CommandReorder759_Stop, 0);
+    Cmd_CommandAdd(pAbc, "Various", "reorder759_compare", Abc_CommandReorder759_Compare, 0);
     
     /* 759 CODE END */
     {

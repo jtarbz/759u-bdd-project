@@ -1,0 +1,6 @@
+read blif-benchmarks/mult6.blif
+reorder759_start
+reorder759
+reorder759
+reorder759_compare
+reorder759_stop
