@@ -1,4 +1,4 @@
-read blif-benchmarks/mult6.blif
+read blif-benchmarks/c499.blif
 reorder759_start
 reorder759
 reorder759

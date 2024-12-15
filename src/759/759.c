@@ -7,13 +7,16 @@
 
 // STATIC GLOBAL VARIABLES
 // manager should go in the ABC frame, but this was quicker
-Orderer_t *manager = NULL;
-int *variableRank;
+static Orderer_t *manager = NULL;
 
+// STATIC FUNCTIONS
 static void rankVarDSCF(Orderer_t *manager, DdNode **bdd);
 static int compareRanks(const void *a, const void *b);
 static int compareIndices(const void *a, const void *b);
 
+// 759 COMMANDS
+
+// start the reordering manager (precondition: a network has been read in)
 int Abc_CommandReorder759_Start(Abc_Frame_t *pAbc, int argc, char **argv) {
     Abc_Ntk_t *ntk = Abc_FrameReadNtk(pAbc);
     Abc_Obj_t *pObj;
@@ -81,6 +84,7 @@ int Abc_CommandReorder759_Start(Abc_Frame_t *pAbc, int argc, char **argv) {
     return 0;
 }
 
+// stop the reordering manager
 int Abc_CommandReorder759_Stop(Abc_Frame_t *pAbc, int argc, char **argv) {
     int i;
     DdNode *bFunc;
@@ -108,6 +112,7 @@ int Abc_CommandReorder759_Stop(Abc_Frame_t *pAbc, int argc, char **argv) {
     return 0;
 }
 
+// apply one iteration of reordering
 int Abc_CommandReorder759(Abc_Frame_t *pAbc, int argc, char **argv) {
     DdNode **outputs;
     long int new_size;
@@ -164,45 +169,82 @@ int Abc_CommandReorder759(Abc_Frame_t *pAbc, int argc, char **argv) {
 }
 
 // perform built-in reordering on default BDD, compare across various metrics
+// very repetitive, i just want to get the results
+// compares sifting, symmetric sifting, and annealing across default order and best permutation
 int Abc_CommandReorder759_Compare(Abc_Frame_t *pAbc, int argc, char **argv) {
-    DdManager *compare_dd;
-    Abc_Ntk_t *compare_ntk;
-    long int anneal_size;
+    DdManager *compare_dd_sift, *compare_dd_symm_sift, *compare_dd_anneal;
+    DdManager *reo_dd_sift, *reo_dd_symm_sift, *reo_dd_anneal;
+    Abc_Ntk_t *compare_ntk_sift, *compare_ntk_symm_sift, *compare_ntk_anneal;
+    Abc_Ntk_t *reo_ntk_sift, *reo_ntk_symm_sift, *reo_ntk_anneal;
+
+    long int sift_size, symm_sift_size, anneal_size;
 
     if (manager == NULL) {
         printf("Manager is NULL. Please run reorder759_start.\n");
         return 1;
     }
 
-    compare_ntk = Abc_NtkDup(manager->ontk);
+    // make duplicate networks from original
+    compare_ntk_sift = Abc_NtkDup(manager->ontk);
+    compare_ntk_symm_sift = Abc_NtkDup(manager->ontk);
+    compare_ntk_anneal = Abc_NtkDup(manager->ontk);
+    reo_ntk_sift = Abc_NtkDup(manager->ontk);
+    reo_ntk_symm_sift = Abc_NtkDup(manager->ontk);
+    reo_ntk_anneal = Abc_NtkDup(manager->ontk);
 
-    compare_ntk = Abc_NtkIsStrash(compare_ntk) ? compare_ntk : Abc_NtkStrash(compare_ntk, 0, 0, 0);
+    // strash the networks
+    compare_ntk_sift = Abc_NtkIsStrash(compare_ntk_sift) ? compare_ntk_sift : Abc_NtkStrash(compare_ntk_sift, 0, 0, 0);
+    compare_ntk_symm_sift = Abc_NtkIsStrash(compare_ntk_symm_sift) ? compare_ntk_symm_sift : Abc_NtkStrash(compare_ntk_symm_sift, 0, 0, 0);
+    compare_ntk_anneal = Abc_NtkIsStrash(compare_ntk_anneal) ? compare_ntk_anneal : Abc_NtkStrash(compare_ntk_anneal, 0, 0, 0);
+    reo_ntk_sift = Abc_NtkIsStrash(reo_ntk_sift) ? reo_ntk_sift : Abc_NtkStrash(reo_ntk_sift, 0, 0, 0);
+    reo_ntk_symm_sift = Abc_NtkIsStrash(reo_ntk_symm_sift) ? reo_ntk_symm_sift : Abc_NtkStrash(reo_ntk_symm_sift, 0, 0, 0);
+    reo_ntk_anneal = Abc_NtkIsStrash(reo_ntk_anneal) ? reo_ntk_anneal : Abc_NtkStrash(reo_ntk_anneal, 0, 0, 0);
 
-    compare_dd = (DdManager *)Abc_NtkBuildGlobalBdds(compare_ntk, 10000000, 1, 0, 0, 0);
+    // build global BDDs from networks
+    compare_dd_sift = (DdManager *)Abc_NtkBuildGlobalBdds(compare_ntk_sift, 10000000, 1, 0, 0, 0);
+    compare_dd_symm_sift = (DdManager *)Abc_NtkBuildGlobalBdds(compare_ntk_symm_sift, 10000000, 1, 0, 0, 0);
+    compare_dd_anneal = (DdManager *)Abc_NtkBuildGlobalBdds(compare_ntk_anneal, 10000000, 1, 0, 0, 0);
+    reo_dd_sift = (DdManager *)Abc_NtkBuildGlobalBdds(reo_ntk_sift, 10000000, 1, 0, 0, 0);
+    reo_dd_symm_sift = (DdManager *)Abc_NtkBuildGlobalBdds(reo_ntk_symm_sift, 10000000, 1, 0, 0, 0); 
+    reo_dd_anneal = (DdManager *)Abc_NtkBuildGlobalBdds(reo_ntk_anneal, 10000000, 1, 0, 0, 0);
 
-    if(compare_dd == NULL ){
-        printf("Error building global BDDs\n");
-        if (compare_ntk != manager->ontk) {
-            Abc_NtkDelete(compare_ntk);
-        }
+    // apply best permutation from reordering manager
+    Cudd_ShuffleHeap(reo_dd_sift, manager->best_perm);
+    Cudd_ShuffleHeap(reo_dd_symm_sift, manager->best_perm);
+    Cudd_ShuffleHeap(reo_dd_anneal, manager->best_perm);
 
-        return 1;
-    }
+    Cudd_ReduceHeap(compare_dd_sift, CUDD_REORDER_SIFT, 1);
+    Cudd_ReduceHeap(compare_dd_symm_sift, CUDD_REORDER_SYMM_SIFT, 1);
+    Cudd_ReduceHeap(compare_dd_anneal, CUDD_REORDER_ANNEALING, 1);
 
-    Cudd_AutodynDisable(compare_dd);
+    sift_size = Cudd_ReadNodeCount(compare_dd_sift);
+    symm_sift_size = Cudd_ReadNodeCount(compare_dd_symm_sift);
+    anneal_size = Cudd_ReadNodeCount(compare_dd_anneal);
+    printf("(sift size, symmetric sift size, annealing size) = (%ld, %ld, %ld)\n", sift_size, symm_sift_size, anneal_size);
 
-    Cudd_ReduceHeap(compare_dd, CUDD_REORDER_SIFT, 1);
+    Cudd_ReduceHeap(reo_dd_sift, CUDD_REORDER_SIFT, 1);
+    Cudd_ReduceHeap(reo_dd_symm_sift, CUDD_REORDER_SYMM_SIFT, 1);
+    Cudd_ReduceHeap(reo_dd_anneal, CUDD_REORDER_ANNEALING, 1);
 
-    anneal_size = Cudd_ReadNodeCount(compare_dd);
-    printf("(sift size, 759 best) = (%ld, %ld)\n", anneal_size, manager->best_size);
+    sift_size = Cudd_ReadNodeCount(reo_dd_sift);
+    symm_sift_size = Cudd_ReadNodeCount(reo_dd_symm_sift);
+    anneal_size = Cudd_ReadNodeCount(reo_dd_anneal);
+    printf("(759 best, 759 sift, 759 symmetric sift, 759 annealing) = (%ld, %ld, %ld, %ld)\n", manager->best_size, sift_size, symm_sift_size, anneal_size);
 
-    Cudd_ReduceHeap(manager->dd, CUDD_REORDER_SIFT, 1);
-
-    printf("759 best after sifting: %ld\n", Cudd_ReadNodeCount(manager->dd));
-
-    Abc_NtkFreeGlobalBdds(compare_ntk, 0);
-    Abc_NtkDelete(compare_ntk);
-
+    Abc_NtkFreeGlobalBdds(compare_ntk_sift, 0);
+    Abc_NtkFreeGlobalBdds(compare_ntk_symm_sift, 0);
+    Abc_NtkFreeGlobalBdds(compare_ntk_anneal, 0);
+    Abc_NtkFreeGlobalBdds(reo_ntk_sift, 0);
+    Abc_NtkFreeGlobalBdds(reo_ntk_symm_sift, 0);
+    Abc_NtkFreeGlobalBdds(reo_ntk_anneal, 0);
+    
+    Abc_NtkDelete(compare_ntk_sift);
+    Abc_NtkDelete(compare_ntk_symm_sift);
+    Abc_NtkDelete(compare_ntk_anneal);
+    Abc_NtkDelete(reo_ntk_sift);
+    Abc_NtkDelete(reo_ntk_symm_sift);
+    Abc_NtkDelete(reo_ntk_anneal);
+    
     return 0;
 }
 

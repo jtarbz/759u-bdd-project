@@ -7,7 +7,7 @@
 
 typedef struct Ordered_Var {
     int index;
-    int rank;
+    long int rank;
 } Ordered_Var_t;
 
 typedef struct Orderer {
