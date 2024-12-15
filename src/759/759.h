@@ -5,6 +5,9 @@
 #include "base/main/abcapis.h"
 #include "bdd/cudd/cudd.h"
 
+#define REORDER_LIMIT_FACTOR 2
+#define REORDER_SHORT_DIVISOR 2
+
 typedef struct Ordered_Var {
     int index;
     long int rank;
@@ -18,6 +21,7 @@ typedef struct Orderer {
     DdManager *dd;              // BDD unique table (CUDD)
     Abc_Ntk_t *sntk;            // ABC strashed network (from read input)
     Abc_Ntk_t *ontk;            // original ABC network
+    int ran_once;
 
     int *perm;                  // current permuation
 

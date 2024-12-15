@@ -5,16 +5,18 @@
 #include "bdd/cudd/cudd.h"
 #include "bdd/cudd/cuddInt.h"
 
-// STATIC GLOBAL VARIABLES
+/* STATIC GLOBAL VARIABLES */
+
 // manager should go in the ABC frame, but this was quicker
 static Orderer_t *manager = NULL;
 
-// STATIC FUNCTIONS
+/* STATIC FUNCTION PROTOTYPES*/
+
 static void rankVarDSCF(Orderer_t *manager, DdNode **bdd);
 static int compareRanks(const void *a, const void *b);
 static int compareIndices(const void *a, const void *b);
 
-// 759 COMMANDS
+/* 759 COMMAND FUNCTIONS */
 
 // start the reordering manager (precondition: a network has been read in)
 int Abc_CommandReorder759_Start(Abc_Frame_t *pAbc, int argc, char **argv) {
@@ -81,6 +83,8 @@ int Abc_CommandReorder759_Start(Abc_Frame_t *pAbc, int argc, char **argv) {
     manager->best_size = manager->default_size;
     printf("Default BDD size: %ld\n", manager->default_size);
 
+    manager->ran_once = 0;
+
     return 0;
 }
 
@@ -122,6 +126,9 @@ int Abc_CommandReorder759(Abc_Frame_t *pAbc, int argc, char **argv) {
         return 1;
     }
 
+    if (manager->ran_once == 0) {
+        manager->ran_once = 1;
+    }
     outputs = (DdNode **)Vec_PtrArray(manager->global_funcs);
 
     // rank variables
@@ -136,15 +143,9 @@ int Abc_CommandReorder759(Abc_Frame_t *pAbc, int argc, char **argv) {
     }
 
     #ifdef REORDER759_DEBUG
-    printf("Permutation: ");
-    for (int i = 0; i < manager->num_vars; ++i) {
-        printf("%d ", manager->perm[i]);
-    }
-    printf("\n");
-
     printf("Variable ranks: ");
     for (int i = 0; i < manager->num_vars; ++i) {
-        printf("%d ", manager->vars[i].rank);
+        printf("%ld ", manager->vars[i].rank);
     }
     printf("\n");
     #endif
@@ -154,16 +155,25 @@ int Abc_CommandReorder759(Abc_Frame_t *pAbc, int argc, char **argv) {
 
     new_size = Cudd_ReadNodeCount(manager->dd);
 
-    if (new_size < manager->best_size) {
+    if (new_size < manager->best_size || (new_size > manager->best_size && manager->ran_once == 1)) {
         printf("New best size: %ld; (old best, default) = (%ld, %ld)\n", new_size, manager->best_size, manager->default_size);
         manager->best_size = new_size;
 
         for (int i = 0; i < manager->num_vars; ++i) {
             manager->best_perm[i] = manager->perm[i];
         }
+
+        manager->ran_once = 2;
     } else {
         printf("New size is: %ld; (best, default) = (%ld, %ld)\n", new_size, manager->best_size, manager->default_size);
     }
+
+    printf("Permutation: ");
+    for (int i = 0; i < manager->num_vars; ++i) {
+        printf("%d ", manager->perm[i]);
+    }
+    printf("\n");
+
 
     return 0;
 }
@@ -248,15 +258,17 @@ int Abc_CommandReorder759_Compare(Abc_Frame_t *pAbc, int argc, char **argv) {
     return 0;
 }
 
+/* STATIC HELPER FUNCTIONS */
+
 // consider the length of cubes over all outputs and rank variables
 // according to their frequency in short cubes.
-// "short" := half or more of the variables are DC
 static void rankVarDSCF(Orderer_t *manager, DdNode **bdd) {
     DdGen *gen;
     int *cube;
     CUDD_VALUE_TYPE value;
     int i, cubeLength, o;
     DdManager *dd = manager->dd;
+    long int limit = REORDER_LIMIT_FACTOR*manager->default_size;
 
     // order manager variables by current permutation
     qsort(manager->vars, manager->num_vars, sizeof(Ordered_Var_t), compareIndices);
@@ -285,12 +297,19 @@ static void rankVarDSCF(Orderer_t *manager, DdNode **bdd) {
 
             // rank by cube length: higher number is "better"
             for (i = 0; i < manager->num_vars; i++) {
-                if (cube[i] != 2 && cubeLength <= manager->num_vars / 2) {
+                if (cube[i] != 2 && cubeLength <= manager->num_vars/REORDER_SHORT_DIVISOR) {
                     manager->vars[i].rank += (manager->num_vars - cubeLength); 
+                }
+
+                // get out early there are too many cubes relative to default BDD size
+                if (manager->vars[i].rank >= limit) {
+                    goto escape;
                 }
             }
         }
     }
+
+    escape:
 }
 
 static int compareRanks(const void *a, const void *b) {
